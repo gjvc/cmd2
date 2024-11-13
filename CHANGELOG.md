@@ -10,6 +10,11 @@
     * Added `RawDescriptionCmd2HelpFormatter`, `RawTextCmd2HelpFormatter`, `ArgumentDefaultsCmd2HelpFormatter`,
       and `MetavarTypeCmd2HelpFormatter` and they all use `rich-argparse`.
 
+## 2.5.5 (November 13, 2024)
+* Bug Fixes
+   * Fixed type hints for passing a class method to `with_argparser` and `as_subcommand_to`.
+   * Fixed issue where `set` command was not always printing a settable's current value.
+
 ## 2.5.4 (November 6, 2024)
 * Bug Fixes
   * Fixed `ZeroDivisionError` in `async_alert()` when `shutil.get_terminal_size().columns` is 0.
