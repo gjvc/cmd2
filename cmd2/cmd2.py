@@ -273,8 +273,8 @@ class _CommandParsers:
             _set_parser_prog(parser, command)
 
             # If the description has not been set, then use the method docstring if one exists
-            if parser.description is None and hasattr(command_method, '__wrapped__') and command_method.__wrapped__.__doc__:
-                parser.description = strip_doc_annotations(command_method.__wrapped__.__doc__)
+            if parser.description is None and command_method.__doc__:
+                parser.description = strip_doc_annotations(command_method.__doc__)
 
             self._parsers[full_method_name] = parser
 
@@ -3753,12 +3753,8 @@ class Cmd(cmd.Cmd):
 
                     doc: Optional[str]
 
-                    # If this is an argparse command, use its description.
-                    if (cmd_parser := self._command_parsers.get(cmd_func)) is not None:
-                        doc = cmd_parser.description
-
                     # Non-argparse commands can have help_functions for their documentation
-                    elif command in topics:
+                    if command in topics:
                         help_func = getattr(self, constants.HELP_FUNC_PREFIX + command)
                         result = io.StringIO()
 

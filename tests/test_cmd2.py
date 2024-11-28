@@ -1256,9 +1256,10 @@ def test_help_multiline_docstring(help_app):
     assert help_app.last_result is True
 
 
-def test_help_verbose_uses_parser_description(help_app: HelpApp):
+def test_help_verbose_uses_parser_docstring(help_app: HelpApp):
     out, err = run_cmd(help_app, 'help --verbose')
-    verify_help_text(help_app, out, verbose_strings=[help_app.parser_cmd_parser.description])
+    expected_verbose = utils.strip_doc_annotations(help_app.do_parser_cmd.__doc__)
+    verify_help_text(help_app, out, verbose_strings=[expected_verbose])
 
 
 class HelpCategoriesApp(cmd2.Cmd):
