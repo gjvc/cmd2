@@ -10,6 +10,11 @@
     * Added `RawDescriptionCmd2HelpFormatter`, `RawTextCmd2HelpFormatter`, `ArgumentDefaultsCmd2HelpFormatter`,
       and `MetavarTypeCmd2HelpFormatter` and they all use `rich-argparse`.
 
+## 2.5.7 (November 22, 2024)
+* Bug Fixes
+   * Fixed issue where argument parsers for overridden commands were not being created.
+   * Fixed issue where `Cmd.ppaged()` was not writing to the passed in destination.
+
 ## 2.5.6 (November 14, 2024)
 * Bug Fixes
    * Fixed type hint for `with_default_category` decorator which caused type checkers to mistype
