@@ -26,9 +26,6 @@ Git repository on GitHub at https://github.com/python-cmd2/cmd2
 # infrequently utilized. To reduce the initial overhead of
 # import this module, many of these imports are lazy-loaded
 # i.e. we only import the module when we use it
-# For example, we don't import the 'traceback' module
-# until the pexcept() function is called and the debug
-# setting is True
 import argparse
 import cmd
 import copy
@@ -69,12 +66,23 @@ from typing import (
     cast,
 )
 
+import rich
+from rich.box import SIMPLE_HEAD
+from rich.console import (
+    Group,
+)
+from rich.rule import Rule
+from rich.style import StyleType
+from rich.table import Column, Table
+from rich.text import Text
+
 from . import (
     ansi,
     argparse_completer,
     argparse_custom,
     constants,
     plugin,
+    rich_utils,
     utils,
 )
 from .argparse_custom import (
@@ -129,6 +137,7 @@ try:
 except ImportError:
     pass
 
+from . import table_creator
 from .rl_utils import (
     RlType,
     rl_escape_prompt,
@@ -141,10 +150,6 @@ from .rl_utils import (
     rl_warning,
     vt100_support,
 )
-from .table_creator import (
-    Column,
-    SimpleTable,
-)
 from .utils import (
     Settable,
     get_defining_class,
@@ -154,7 +159,10 @@ from .utils import (
 
 # Set up readline
 if rl_type == RlType.NONE:  # pragma: no cover
-    sys.stderr.write(ansi.style_warning(rl_warning))
+    rich.print(
+        Text(rl_warning, style=rich_utils.style_warning),
+        file=sys.stderr,
+    )
 else:
     from .rl_utils import (  # type: ignore[attr-defined]
         readline,
@@ -297,6 +305,7 @@ class Cmd(cmd.Cmd):
     """
 
     DEFAULT_EDITOR = utils.find_editor()
+    ruler = "─"
 
     # Sorting keys for strings
     ALPHABETICAL_SORT_KEY = utils.norm_fold
@@ -474,7 +483,13 @@ class Cmd(cmd.Cmd):
         self._multiline_in_progress = ''
 
         # Set the header used for the help function's listing of documented functions
-        self.doc_header = "Documented commands (use 'help -v' for verbose/'help <topic>' for details):"
+        self.doc_header = "Documented commands (use 'help -v' for verbose/'help <topic>' for details)"
+
+        # Set header for table listing help topics not related to a command.
+        self.misc_header = "Miscellaneous Help Topics"
+
+        # Set header for table listing commands that have no help info.
+        self.undoc_header = "Undocumented Commands"
 
         # The error that prints when no help information can be found
         self.help_error = "No help on {}"
@@ -515,7 +530,7 @@ class Cmd(cmd.Cmd):
         elif transcript_files:
             self._transcript_files = transcript_files
 
-        # Set the pager(s) for use with the ppaged() method for displaying output using a pager
+        # Set the pager(s) for use when displaying output using a pager
         if sys.platform.startswith('win'):
             self.pager = self.pager_chop = 'more'
         else:
@@ -926,7 +941,7 @@ class Cmd(cmd.Cmd):
 
             subcommand_valid, errmsg = self.statement_parser.is_valid_command(subcommand_name, is_subcommand=True)
             if not subcommand_valid:
-                raise CommandSetRegistrationError(f'Subcommand {str(subcommand_name)} is not valid: {errmsg}')
+                raise CommandSetRegistrationError(f'Subcommand {subcommand_name} is not valid: {errmsg}')
 
             command_tokens = full_command_name.split()
             command_name = command_tokens[0]
@@ -939,13 +954,11 @@ class Cmd(cmd.Cmd):
                 command_func = self.cmd_func(command_name)
 
             if command_func is None:
-                raise CommandSetRegistrationError(
-                    f"Could not find command '{command_name}' needed by subcommand: {str(method)}"
-                )
+                raise CommandSetRegistrationError(f"Could not find command '{command_name}' needed by subcommand: {method}")
             command_parser = self._command_parsers.get(command_func)
             if command_parser is None:
                 raise CommandSetRegistrationError(
-                    f"Could not find argparser for command '{command_name}' needed by subcommand: {str(method)}"
+                    f"Could not find argparser for command '{command_name}' needed by subcommand: {method}"
                 )
 
             def find_subcommand(action: argparse.ArgumentParser, subcmd_names: list[str]) -> argparse.ArgumentParser:
@@ -1041,15 +1054,13 @@ class Cmd(cmd.Cmd):
             if command_func is None:  # pragma: no cover
                 # This really shouldn't be possible since _register_subcommands would prevent this from happening
                 # but keeping in case it does for some strange reason
-                raise CommandSetRegistrationError(
-                    f"Could not find command '{command_name}' needed by subcommand: {str(method)}"
-                )
+                raise CommandSetRegistrationError(f"Could not find command '{command_name}' needed by subcommand: {method}")
             command_parser = self._command_parsers.get(command_func)
             if command_parser is None:  # pragma: no cover
                 # This really shouldn't be possible since _register_subcommands would prevent this from happening
                 # but keeping in case it does for some strange reason
                 raise CommandSetRegistrationError(
-                    f"Could not find argparser for command '{command_name}' needed by subcommand: {str(method)}"
+                    f"Could not find argparser for command '{command_name}' needed by subcommand: {method}"
                 )
 
             for action in command_parser._actions:
@@ -1128,16 +1139,16 @@ class Cmd(cmd.Cmd):
 
         def get_allow_style_choices(cli_self: Cmd) -> list[str]:
             """Used to tab complete allow_style values"""
-            return [val.name.lower() for val in ansi.AllowStyle]
+            return [val.name.lower() for val in rich_utils.AllowStyle]
 
-        def allow_style_type(value: str) -> ansi.AllowStyle:
-            """Converts a string value into an ansi.AllowStyle"""
+        def allow_style_type(value: str) -> rich_utils.AllowStyle:
+            """Converts a string value into an rich_utils.AllowStyle"""
             try:
-                return ansi.AllowStyle[value.upper()]
+                return rich_utils.AllowStyle[value.upper()]
             except KeyError:
                 raise ValueError(
-                    f"must be {ansi.AllowStyle.ALWAYS}, {ansi.AllowStyle.NEVER}, or "
-                    f"{ansi.AllowStyle.TERMINAL} (case-insensitive)"
+                    f"must be {rich_utils.AllowStyle.ALWAYS}, {rich_utils.AllowStyle.NEVER}, or "
+                    f"{rich_utils.AllowStyle.TERMINAL} (case-insensitive)"
                 )
 
         self.add_settable(
@@ -1145,7 +1156,7 @@ class Cmd(cmd.Cmd):
                 'allow_style',
                 allow_style_type,
                 'Allow ANSI text style sequences in output (valid values: '
-                f'{ansi.AllowStyle.ALWAYS}, {ansi.AllowStyle.NEVER}, {ansi.AllowStyle.TERMINAL})',
+                f'{rich_utils.AllowStyle.ALWAYS}, {rich_utils.AllowStyle.NEVER}, {rich_utils.AllowStyle.TERMINAL})',
                 self,
                 choices_provider=cast(ChoicesProviderFunc, get_allow_style_choices),
             )
@@ -1168,14 +1179,14 @@ class Cmd(cmd.Cmd):
     # -----  Methods related to presenting output to the user -----
 
     @property
-    def allow_style(self) -> ansi.AllowStyle:
+    def allow_style(self) -> rich_utils.AllowStyle:
         """Read-only property needed to support do_set when it reads allow_style"""
-        return ansi.allow_style
+        return rich_utils.allow_style
 
     @allow_style.setter
-    def allow_style(self, new_val: ansi.AllowStyle) -> None:
+    def allow_style(self, new_val: rich_utils.AllowStyle) -> None:
         """Setter property needed to support do_set when it updates allow_style"""
-        ansi.allow_style = new_val
+        rich_utils.allow_style = new_val
 
     def _completion_supported(self) -> bool:
         """Return whether tab completion is supported"""
@@ -1192,168 +1203,274 @@ class Cmd(cmd.Cmd):
         """
         return ansi.strip_style(self.prompt)
 
+    def _can_page(self, file: IO[str]) -> bool:
+        """
+        Return whether output can be passed through a pager.
+
+        :param file: file stream being written to
+        :return: True if paging is allowed, otherwise False
+        """
+        # Detect if we are running within a fully functional terminal.
+        # Don't try to use the pager when being run by a continuous integration system like Jenkins + pexpect.
+        functional_terminal = (
+            self.stdin.isatty() and file.isatty() and (sys.platform.startswith('win') or os.environ.get('TERM') is not None)
+        )
+
+        # Don't attempt to use a pager that can block if redirecting or running a script (either text or Python).
+        can_block = not (self._redirecting or self.in_pyscript() or self.in_script())
+
+        return functional_terminal and can_block
+
     def print_to(
         self,
-        dest: IO[str],
-        msg: Any,
-        *,
-        end: str = '\n',
-        style: Optional[Callable[[str], str]] = None,
+        file: IO[str],
+        *objects: Any,
+        sep: str = " ",
+        end: str = "\n",
+        style: Optional[StyleType] = None,
+        paged: bool = False,
+        chop: bool = False,
+        **kwargs: Any,
     ) -> None:
         """
-        Print message to a given file object.
+        Print objects to a given file stream.
 
-        :param dest: the file object being written to
-        :param msg: object to print
-        :param end: string appended after the end of the message, default a newline
-        :param style: optional style function to format msg with (e.g. ansi.style_success)
-        """
-        final_msg = style(msg) if style is not None else msg
-        try:
-            ansi.style_aware_write(dest, f'{final_msg}{end}')
-        except BrokenPipeError:
-            # This occurs if a command's output is being piped to another
-            # process and that process closes before the command is
-            # finished. If you would like your application to print a
-            # warning message, then set the broken_pipe_warning attribute
-            # to the message you want printed.
-            if self.broken_pipe_warning:
-                sys.stderr.write(self.broken_pipe_warning)
-
-    def poutput(self, msg: Any = '', *, end: str = '\n') -> None:
-        """Print message to self.stdout and appends a newline by default
-
-        :param msg: object to print
-        :param end: string appended after the end of the message, default a newline
-        """
-        self.print_to(self.stdout, msg, end=end)
-
-    def perror(self, msg: Any = '', *, end: str = '\n', apply_style: bool = True) -> None:
-        """Print message to sys.stderr
-
-        :param msg: object to print
-        :param end: string appended after the end of the message, default a newline
-        :param apply_style: If True, then ansi.style_error will be applied to the message text. Set to False in cases
-                            where the message text already has the desired style. Defaults to True.
-        """
-        self.print_to(sys.stderr, msg, end=end, style=ansi.style_error if apply_style else None)
-
-    def psuccess(self, msg: Any = '', *, end: str = '\n') -> None:
-        """Wraps poutput, but applies ansi.style_success by default
-
-        :param msg: object to print
-        :param end: string appended after the end of the message, default a newline
-        """
-        msg = ansi.style_success(msg)
-        self.poutput(msg, end=end)
-
-    def pwarning(self, msg: Any = '', *, end: str = '\n') -> None:
-        """Wraps perror, but applies ansi.style_warning by default
-
-        :param msg: object to print
-        :param end: string appended after the end of the message, default a newline
-        """
-        msg = ansi.style_warning(msg)
-        self.perror(msg, end=end, apply_style=False)
-
-    def pexcept(self, msg: Any, *, end: str = '\n', apply_style: bool = True) -> None:
-        """Print Exception message to sys.stderr. If debug is true, print exception traceback if one exists.
-
-        :param msg: message or Exception to print
-        :param end: string appended after the end of the message, default a newline
-        :param apply_style: If True, then ansi.style_error will be applied to the message text. Set to False in cases
-                            where the message text already has the desired style. Defaults to True.
-        """
-        if self.debug and sys.exc_info() != (None, None, None):
-            import traceback
-
-            traceback.print_exc()
-
-        if isinstance(msg, Exception):
-            final_msg = f"EXCEPTION of type '{type(msg).__name__}' occurred with message: {msg}"
-        else:
-            final_msg = str(msg)
-
-        if apply_style:
-            final_msg = ansi.style_error(final_msg)
-
-        if not self.debug and 'debug' in self.settables:
-            warning = "\nTo enable full traceback, run the following command: 'set debug true'"
-            final_msg += ansi.style_warning(warning)
-
-        self.perror(final_msg, end=end, apply_style=False)
-
-    def pfeedback(self, msg: Any, *, end: str = '\n') -> None:
-        """For printing nonessential feedback.  Can be silenced with `quiet`.
-        Inclusion in redirected output is controlled by `feedback_to_output`.
-
-        :param msg: object to print
-        :param end: string appended after the end of the message, default a newline
-        """
-        if not self.quiet:
-            if self.feedback_to_output:
-                self.poutput(msg, end=end)
-            else:
-                self.perror(msg, end=end, apply_style=False)
-
-    def ppaged(self, msg: Any, *, end: str = '\n', chop: bool = False) -> None:
-        """Print output using a pager if it would go off screen and stdout isn't currently being redirected.
-
-        Never uses a pager inside a script (Python or text) or when output is being redirected or piped or when
-        stdout or stdin are not a fully functional terminal.
-
-        :param msg: object to print
-        :param end: string appended after the end of the message, default a newline
-        :param chop: True -> causes lines longer than the screen width to be chopped (truncated) rather than wrapped
+        :param file: file stream being written to
+        :param objects: objects to print
+        :param sep: string to write between print data. Defaults to " ".
+        :param end: string to write at end of print data. Defaults to a newline.
+        :param style: optional style to apply to output
+        :param paged: If True, pass the output through the configured pager.
+        :param chop: Applies only when paged is True.
+                     True -> causes lines longer than the screen width to be chopped (truncated) rather than wrapped
                               - truncated text is still accessible by scrolling with the right & left arrow keys
                               - chopping is ideal for displaying wide tabular data as is done in utilities like pgcli
                      False -> causes lines longer than the screen width to wrap to the next line
                               - wrapping is ideal when you want to keep users from having to use horizontal scrolling
-
-        WARNING: On Windows, the text always wraps regardless of what the chop argument is set to
+                     WARNING: On Windows, the text always wraps regardless of what the chop argument is set to
+        :param kwargs: Custom keyword args to support overriding this function as well as controlling the behavior of
+                       Console.print(). Don't forget to remove any arguments not meant for Console.print()
+                       after you've processed them.
         """
-        # Attempt to detect if we are not running within a fully functional terminal.
-        # Don't try to use the pager when being run by a continuous integration system like Jenkins + pexpect.
-        functional_terminal = False
+        console = rich_utils.Cmd2Console(file)
 
-        if self.stdin.isatty() and self.stdout.isatty():
-            if sys.platform.startswith('win') or os.environ.get('TERM') is not None:
-                functional_terminal = True
+        if paged and self._can_page(file):
+            import subprocess
 
-        # Don't attempt to use a pager that can block if redirecting or running a script (either text or Python).
-        # Also only attempt to use a pager if actually running in a real fully functional terminal.
-        if functional_terminal and not self._redirecting and not self.in_pyscript() and not self.in_script():
-            final_msg = f"{msg}{end}"
-            if ansi.allow_style == ansi.AllowStyle.NEVER:
-                final_msg = ansi.strip_style(final_msg)
+            # Generate the bytes to send to the pager
+            with console.capture() as capture:
+                kwargs["soft_wrap"] = chop
+                console.print(*objects, sep=sep, end=end, style=style, **kwargs)
+            output_bytes = capture.get().encode('utf-8', 'replace')
 
-            pager = self.pager
-            if chop:
-                pager = self.pager_chop
-
-            try:
-                # Prevent KeyboardInterrupts while in the pager. The pager application will
-                # still receive the SIGINT since it is in the same process group as us.
-                with self.sigint_protection:
-                    import subprocess
-
-                    pipe_proc = subprocess.Popen(pager, shell=True, stdin=subprocess.PIPE, stdout=self.stdout)
-                    pipe_proc.communicate(final_msg.encode('utf-8', 'replace'))
-            except BrokenPipeError:
-                # This occurs if a command's output is being piped to another process and that process closes before the
-                # command is finished. If you would like your application to print a warning message, then set the
-                # broken_pipe_warning attribute to the message you want printed.`
-                if self.broken_pipe_warning:
-                    sys.stderr.write(self.broken_pipe_warning)
+            # Prevent KeyboardInterrupts while in the pager. The pager application will
+            # still receive the SIGINT since it is in the same process group as us.
+            with self.sigint_protection:
+                pipe_proc = subprocess.Popen(
+                    self.pager_chop if chop else self.pager,
+                    shell=True,
+                    stdin=subprocess.PIPE,
+                    stdout=file,
+                )
+                pipe_proc.communicate(output_bytes)
         else:
-            self.poutput(msg, end=end)
+            try:
+                console.print(*objects, sep=sep, end=end, style=style, **kwargs)
+            except BrokenPipeError:
+                # This occurs if a command's output is being piped to another
+                # process which closes the pipe before the command is finished
+                # writing. If you would like your application to print a
+                # warning message, then set the broken_pipe_warning attribute
+                # to the message you want printed.
+                if self.broken_pipe_warning and file != sys.stderr:
+                    warning_console = rich_utils.Cmd2Console(file=sys.stderr)
+                    warning_console.print(self.broken_pipe_warning)
+
+    def poutput(
+        self,
+        *objects: Any,
+        sep: str = " ",
+        end: str = "\n",
+        style: Optional[StyleType] = None,
+        paged: bool = False,
+        chop: bool = False,
+        **kwargs: Any,
+    ) -> None:
+        """
+        Print objects to self.stdout.
+
+        :param objects: objects to print
+        :param sep: string to write between print data. Defaults to " ".
+        :param end: string to write at end of print data. Defaults to a newline.
+        :param style: optional style to apply to output
+        :param paged: If True, pass the output through the configured pager.
+        :param chop: Applies only when paged is True.
+                     See print_to() docstring for full description of chop.
+        :param kwargs: Custom keyword args to support overriding this function as well as controlling the behavior of
+                       Console.print(). Don't forget to remove any arguments not meant for Console.print()
+                       after you've processed them.
+        """
+        self.print_to(self.stdout, *objects, sep=sep, end=end, style=style, paged=paged, chop=chop, **kwargs)
+
+    def perror(
+        self,
+        *objects: Any,
+        sep: str = " ",
+        end: str = "\n",
+        style: Optional[StyleType] = None,
+        paged: bool = False,
+        chop: bool = False,
+        **kwargs: Any,
+    ) -> None:
+        """
+        Print objects to sys.stderr.
+
+        :param objects: objects to print
+        :param sep: string to write between print data. Defaults to " ".
+        :param end: string to write at end of print data. Defaults to a newline.
+        :param style: optional style to apply to output
+        :param paged: If True, pass the output through the configured pager.
+        :param chop: Applies only when paged is True.
+                     See print_to() docstring for full description of chop.
+        :param kwargs: Custom keyword args to support overriding this function as well as controlling the behavior of
+                       Console.print(). Don't forget to remove any arguments not meant for Console.print()
+                       after you've processed them.
+        """
+        self.print_to(sys.stderr, *objects, sep=sep, end=end, style=style, paged=paged, chop=chop, **kwargs)
+
+    def psuccess(
+        self,
+        *objects: Any,
+        sep: str = " ",
+        end: str = "\n",
+        paged: bool = False,
+        chop: bool = False,
+        **kwargs: Any,
+    ) -> None:
+        """
+        Wraps poutput, but applies rich_utils.style_success.
+
+        :param objects: objects to print
+        :param sep: string to write between print data. Defaults to " ".
+        :param end: string to write at end of print data. Defaults to a newline.
+        :param paged: If True, pass the output through the configured pager.
+        :param chop: Applies only when paged is True.
+                     See print_to() docstring for full description of chop.
+        :param kwargs: Custom keyword args to support overriding this function as well as controlling the behavior of
+                       Console.print(). Don't forget to remove any arguments not meant for Console.print()
+                       after you've processed them.
+        """
+        self.poutput(*objects, sep=sep, end=end, style=rich_utils.style_success, paged=paged, chop=chop, **kwargs)
+
+    def pwarning(
+        self,
+        *objects: Any,
+        sep: str = " ",
+        end: str = "\n",
+        paged: bool = False,
+        chop: bool = False,
+        **kwargs: Any,
+    ) -> None:
+        """
+        Wraps perror, but applies rich_utils.style_warning.
+
+        :param objects: objects to print
+        :param sep: string to write between print data. Defaults to " ".
+        :param end: string to write at end of print data. Defaults to a newline.
+        :param paged: If True, pass the output through the configured pager.
+        :param chop: Applies only when paged is True.
+                     See print_to() docstring for full description of chop.
+        :param kwargs: Custom keyword args to support overriding this function as well as controlling the behavior of
+                       Console.print(). Don't forget to remove any arguments not meant for Console.print()
+                       after you've processed them.
+        """
+        self.perror(*objects, sep=sep, end=end, style=rich_utils.style_warning, paged=paged, chop=chop, **kwargs)
+
+    def pfailure(
+        self,
+        *objects: Any,
+        sep: str = " ",
+        end: str = "\n",
+        paged: bool = False,
+        chop: bool = False,
+        **kwargs: Any,
+    ) -> None:
+        """
+        Wraps perror, but applies rich_utils.style_failure.
+
+        :param objects: objects to print
+        :param sep: string to write between print data. Defaults to " ".
+        :param end: string to write at end of print data. Defaults to a newline.
+        :param paged: If True, pass the output through the configured pager.
+        :param chop: Applies only when paged is True.
+                     See print_to() docstring for full description of chop.
+        :param kwargs: Custom keyword args to support overriding this function as well as controlling the behavior of
+                       Console.print(). Don't forget to remove any arguments not meant for Console.print()
+                       after you've processed them.
+        """
+        self.perror(*objects, sep=sep, end=end, style=rich_utils.style_failure, paged=paged, chop=chop, **kwargs)
+
+    def pexcept(self, exception: BaseException, *, end: str = "\n", **kwargs: Any) -> None:
+        """
+        Print exception to sys.stderr. If debug is true, print exception traceback if one exists.
+
+        :param exception: the exception to print.
+        :param end: string to write at end of print data. Defaults to a newline.
+        :param kwargs: Custom keyword args to support overriding this function as well as controlling the behavior of
+                       Console.print(). Don't forget to remove any arguments not meant for Console.print()
+                       after you've processed them.
+        """
+        final_msg = Text()
+
+        if self.debug and sys.exc_info() != (None, None, None):
+            console = rich_utils.Cmd2Console(sys.stderr)
+            console.print_exception()
+        else:
+            final_msg += f"EXCEPTION of type '{type(exception).__name__}' occurred with message: {exception}"
+
+        if not self.debug and 'debug' in self.settables:
+            warning = "\nTo enable full traceback, run the following command: 'set debug true'"
+            final_msg.append(warning, style=rich_utils.style_warning)
+
+        self.perror(final_msg, end=end, style=rich_utils.style_failure, **kwargs)
+
+    def pfeedback(
+        self,
+        *objects: Any,
+        sep: str = " ",
+        end: str = "\n",
+        style: Optional[StyleType] = None,
+        paged: bool = False,
+        chop: bool = False,
+        **kwargs: Any,
+    ) -> None:
+        """
+        For printing nonessential feedback. Can be silenced with `quiet`.
+        Inclusion in redirected output is controlled by `feedback_to_output`.
+
+        :param objects: objects to print
+        :param sep: string to write between print data. Defaults to " ".
+        :param end: string to write at end of print data. Defaults to a newline.
+        :param style: optional style to apply to output
+        :param paged: If True, pass the output through the configured pager.
+        :param chop: Applies only when paged is True.
+                     See print_to() docstring for full description of chop.
+        :param kwargs: Custom keyword args to support overriding this function as well as controlling the behavior of
+                       Console.print(). Don't forget to remove any arguments not meant for Console.print()
+                       after you've processed them.
+        """
+        if not self.quiet:
+            if self.feedback_to_output:
+                self.poutput(*objects, sep=sep, end=end, style=style, paged=paged, chop=chop, **kwargs)
+            else:
+                self.perror(*objects, sep=sep, end=end, style=style, paged=paged, chop=chop, **kwargs)
 
     # -----  Methods related to tab completion -----
 
     def _reset_completion_defaults(self) -> None:
         """
-        Resets tab completion settings
-        Needs to be called each time readline runs tab completion
+        Reset tab completion settings.
+        Needs to be called each time readline runs tab completion.
         """
         self.allow_appended_space = True
         self.allow_closing_quote = True
@@ -2275,11 +2392,13 @@ class Cmd(cmd.Cmd):
 
         except CompletionError as ex:
             # Don't print error and redraw the prompt unless the error has length
-            err_str = str(ex)
+            err_str = Text(str(ex))
             if err_str:
-                if ex.apply_style:
-                    err_str = ansi.style_error(err_str)
-                ansi.style_aware_write(sys.stdout, '\n' + err_str + '\n')
+                self.print_to(
+                    sys.stdout,
+                    Text.assemble("\n", err_str),
+                    style=rich_utils.style_failure if ex.apply_style else None,
+                )
                 rl_force_redisplay()
             return None
         except Exception as ex:
@@ -2323,7 +2442,7 @@ class Cmd(cmd.Cmd):
         ]
 
     # Table displayed when tab completing aliases
-    _alias_completion_table = SimpleTable([Column('Value', width=80)], divider_char=None)
+    _alias_completion_table = table_creator.SimpleTable([table_creator.Column('Value', width=80)], divider_char=None)
 
     def _get_alias_completion_items(self) -> list[CompletionItem]:
         """Return list of alias names and values as CompletionItems"""
@@ -2336,7 +2455,9 @@ class Cmd(cmd.Cmd):
         return results
 
     # Table displayed when tab completing Settables
-    _settable_completion_table = SimpleTable([Column('Value', width=30), Column('Description', width=60)], divider_char=None)
+    _settable_completion_table = table_creator.SimpleTable(
+        [table_creator.Column('Value', width=30), table_creator.Column('Description', width=60)], divider_char=None
+    )
 
     def _get_settable_completion_items(self) -> list[CompletionItem]:
         """Return list of Settable names, values, and descriptions as CompletionItems"""
@@ -2569,9 +2690,9 @@ class Cmd(cmd.Cmd):
             # Don't do anything, but do allow command finalization hooks to run
             pass
         except Cmd2ShlexError as ex:
-            self.perror(f"Invalid syntax: {ex}")
+            self.pfailure(f"Invalid syntax: {ex}")
         except RedirectionError as ex:
-            self.perror(ex)
+            self.pfailure(ex)
         except KeyboardInterrupt as ex:
             if raise_keyboard_interrupt and not stop:
                 raise ex
@@ -2650,7 +2771,7 @@ class Cmd(cmd.Cmd):
                     return True
             except KeyboardInterrupt as ex:
                 if stop_on_keyboard_interrupt:
-                    self.perror(ex)
+                    self.pfailure(ex)
                     break
 
         return False
@@ -2957,8 +3078,7 @@ class Cmd(cmd.Cmd):
             if self.suggest_similar_command and (suggested_command := self._suggest_similar_command(statement.command)):
                 err_msg += f"\n{self.default_suggestion_message.format(suggested_command)}"
 
-            # Set apply_style to False so styles for default_error and default_suggestion_message are not overridden
-            self.perror(err_msg, apply_style=False)
+            self.perror(err_msg)
             return None
 
     def _suggest_similar_command(self, command: str) -> Optional[str]:
@@ -3269,28 +3389,25 @@ class Cmd(cmd.Cmd):
     # alias -> create
     @staticmethod
     def _build_alias_create_parser() -> Cmd2ArgumentParser:
-        from rich.console import Group
-
         alias_create_description = "Create or overwrite an alias."
+        alias_create_parser = argparse_custom.DEFAULT_ARGUMENT_PARSER(description=alias_create_description)
 
+        # Create epilog
         alias_create_notes = (
             "If you want to use redirection, pipes, or terminators in the value of the alias, then quote them.\n"
             "\n"
             "Since aliases are resolved during parsing, tab completion will function as it would "
             "for the actual command the alias resolves to."
         )
+        notes_group = alias_create_parser.create_text_group("Notes", alias_create_notes)
 
         alias_create_examples = (
             "alias create ls !ls -lF\n"
             "alias create show_log !cat \"log file.txt\"\n"
             "alias create save_results print_results \">\" out.txt"
         )
-
-        alias_create_parser = argparse_custom.DEFAULT_ARGUMENT_PARSER(description=alias_create_description)
-
-        # Create epilog
-        notes_group = alias_create_parser.create_text_group("Notes", alias_create_notes)
         examples_group = alias_create_parser.create_text_group("Examples", alias_create_examples)
+
         alias_create_parser.epilog = Group(notes_group, "\n", examples_group)
 
         alias_create_parser.add_argument('name', help='name of this alias')
@@ -3316,11 +3433,11 @@ class Cmd(cmd.Cmd):
         # Validate the alias name
         valid, errmsg = self.statement_parser.is_valid_command(args.name)
         if not valid:
-            self.perror(f"Invalid alias name: {errmsg}")
+            self.pfailure(f"Invalid alias name: {errmsg}")
             return
 
         if args.name in self.get_all_commands():
-            self.perror("Alias cannot have the same name as a command")
+            self.pfailure("Alias cannot have the same name as a command")
             return
 
         # Unquote redirection and terminator tokens
@@ -3366,7 +3483,7 @@ class Cmd(cmd.Cmd):
             self.aliases.clear()
             self.poutput("All aliases deleted")
         elif not args.names:
-            self.perror("Either --all or alias name(s) must be specified")
+            self.pfailure("Either --all or alias name(s) must be specified")
             self.last_result = False
         else:
             for cur_name in utils.remove_duplicates(args.names):
@@ -3374,7 +3491,7 @@ class Cmd(cmd.Cmd):
                     del self.aliases[cur_name]
                     self.poutput(f"Alias '{cur_name}' deleted")
                 else:
-                    self.perror(f"Alias '{cur_name}' does not exist")
+                    self.pfailure(f"Alias '{cur_name}' does not exist")
 
     # alias -> list
     @staticmethod
@@ -3425,7 +3542,7 @@ class Cmd(cmd.Cmd):
             self.last_result[name] = val
 
         for name in not_found:
-            self.perror(f"Alias '{name}' not found")
+            self.pfailure(f"Alias '{name}' not found")
 
     def complete_help_command(self, text: str, line: str, begidx: int, endidx: int) -> list[str]:
         """Completes the command argument of help"""
@@ -3503,11 +3620,11 @@ class Cmd(cmd.Cmd):
                 # Set end to blank so the help output matches how it looks when "command -h" is used
                 self.poutput(completer.format_help(args.subcommands), end='')
 
-            # If there is a help func delegate to do_help
+            # If there is a help function, then call it
             elif help_func is not None:
-                super().do_help(args.command)
+                help_func()
 
-            # If there's no help_func __doc__ then format and output it
+            # If the command function has a docstring, then print it
             elif func is not None and func.__doc__ is not None:
                 self.poutput(pydoc.getdoc(func))
 
@@ -3515,14 +3632,12 @@ class Cmd(cmd.Cmd):
             else:
                 err_msg = self.help_error.format(args.command)
 
-                # Set apply_style to False so help_error's style is not overridden
-                self.perror(err_msg, apply_style=False)
+                self.perror(err_msg)
                 self.last_result = False
 
     def print_topics(self, header: str, cmds: Optional[list[str]], cmdlen: int, maxcol: int) -> None:
         """
         Print groups of commands and topics in columns and an optional header
-        Override of cmd's print_topics() to handle headers with newlines, ANSI style sequences, and wide characters
 
         :param header: string to print above commands being printed
         :param cmds: list of topics to print
@@ -3530,10 +3645,11 @@ class Cmd(cmd.Cmd):
         :param maxcol: max number of display columns to fit into
         """
         if cmds:
-            self.poutput(header)
+            header_grid = Table.grid()
+            header_grid.add_row(header)
             if self.ruler:
-                divider = utils.align_left('', fill_char=self.ruler, width=ansi.widest_line(header))
-                self.poutput(divider)
+                header_grid.add_row(Rule(characters=self.ruler))
+            self.poutput(header_grid)
             self.columnize(cmds, maxcol - 1)
             self.poutput()
 
@@ -3652,23 +3768,17 @@ class Cmd(cmd.Cmd):
             if not verbose:
                 self.print_topics(header, cmds, 15, 80)
             else:
-                # Find the widest command
-                widest = max([ansi.style_aware_wcswidth(command) for command in cmds])
-
-                # Define the table structure
-                name_column = Column('', width=max(widest, 20))
-                desc_column = Column('', width=80)
-
-                topic_table = SimpleTable([name_column, desc_column], divider_char=self.ruler)
-
-                # Build the topic table
-                table_str_buf = io.StringIO()
-                if header:
-                    table_str_buf.write(header + "\n")
-
-                divider = topic_table.generate_divider()
-                if divider:
-                    table_str_buf.write(divider + "\n")
+                outer_grid = Table.grid()
+                outer_grid.add_row(header, style="bold bright_green")
+                outer_grid.add_row(Rule(characters=self.ruler))
+                topic_grid = Table(
+                    Column("Name", no_wrap=True),
+                    Column("Description", overflow="fold"),
+                    box=SIMPLE_HEAD,
+                    border_style="rule.line",
+                    show_edge=False,
+                    pad_edge=False,
+                )
 
                 # Try to get the documentation string for each command
                 topics = self.get_help_topics()
@@ -3703,10 +3813,10 @@ class Cmd(cmd.Cmd):
                     cmd_desc = strip_doc_annotations(doc) if doc else ''
 
                     # Add this command to the table
-                    table_row = topic_table.generate_data_row([command, cmd_desc])
-                    table_str_buf.write(table_row + '\n')
+                    topic_grid.add_row(command, cmd_desc)
 
-                self.poutput(table_str_buf.getvalue())
+                outer_grid.add_row(topic_grid)
+                self.poutput(Group(outer_grid, "\n"))
 
     @staticmethod
     def _build_shortcuts_parser() -> Cmd2ArgumentParser:
@@ -3873,7 +3983,7 @@ class Cmd(cmd.Cmd):
     # Preserve quotes so users can pass in quoted empty strings and flags (e.g. -h) as the value
     @with_argparser(_build_set_parser, preserve_quotes=True)
     def do_set(self, args: argparse.Namespace) -> None:
-        """Set a settable parameter or show current settings of parameters"""
+        """Set a settable parameter or show current settings of parameters."""
         self.last_result = False
 
         if not self.settables:
@@ -3884,7 +3994,7 @@ class Cmd(cmd.Cmd):
             try:
                 settable = self.settables[args.param]
             except KeyError:
-                self.perror(f"Parameter '{args.param}' not supported (type 'set' for list of parameters).")
+                self.pfailure(f"Parameter '{args.param}' not supported (type 'set' for list of parameters).")
                 return
 
             if args.value:
@@ -3893,7 +4003,7 @@ class Cmd(cmd.Cmd):
                     orig_value = settable.get_value()
                     settable.set_value(utils.strip_quotes(args.value))
                 except Exception as ex:
-                    self.perror(f"Error setting {args.param}: {ex}")
+                    self.pfailure(f"Error setting {args.param}: {ex}")
                 else:
                     self.poutput(f"{args.param} - was: {orig_value!r}\nnow: {settable.get_value()!r}")
                     self.last_result = True
@@ -3906,27 +4016,27 @@ class Cmd(cmd.Cmd):
             to_show = list(self.settables.keys())
 
         # Define the table structure
-        name_label = 'Name'
-        max_name_width = max([ansi.style_aware_wcswidth(param) for param in to_show])
-        max_name_width = max(max_name_width, ansi.style_aware_wcswidth(name_label))
-
-        cols: list[Column] = [
-            Column(name_label, width=max_name_width),
-            Column('Value', width=30),
-            Column('Description', width=60),
-        ]
-
-        table = SimpleTable(cols, divider_char=self.ruler)
-        self.poutput(table.generate_header())
+        settable_table = Table(
+            Column("Name", no_wrap=True),
+            Column("Value", overflow="fold"),
+            Column("Description", overflow="fold"),
+            box=SIMPLE_HEAD,
+            border_style="rule.line",
+            show_edge=False,
+            pad_edge=False,
+        )
 
         # Build the table and populate self.last_result
         self.last_result = {}  # dict[settable_name, settable_value]
 
         for param in sorted(to_show, key=self.default_sort_key):
             settable = self.settables[param]
-            row_data = [param, settable.get_value(), settable.description]
-            self.poutput(table.generate_data_row(row_data))
+            settable_table.add_row(param, str(settable.get_value()), settable.description)
             self.last_result[param] = settable.get_value()
+
+        self.poutput()
+        self.poutput(settable_table)
+        self.poutput()
 
     @staticmethod
     def _build_shell_parser() -> Cmd2ArgumentParser:
@@ -4146,7 +4256,7 @@ class Cmd(cmd.Cmd):
         saved_sys_path = None
 
         if self.in_pyscript():
-            self.perror("Recursively entering interactive Python shells is not allowed")
+            self.pfailure("Recursively entering interactive Python shells is not allowed")
             return None
 
         try:
@@ -4174,7 +4284,7 @@ class Cmd(cmd.Cmd):
                     with open(expanded_filename) as f:
                         py_code_to_run = f.read()
                 except OSError as ex:
-                    self.perror(f"Error reading script file '{expanded_filename}': {ex}")
+                    self.pfailure(f"Error reading script file '{expanded_filename}': {ex}")
                     return None
 
                 local_vars['__name__'] = '__main__'
@@ -4328,7 +4438,7 @@ class Cmd(cmd.Cmd):
                 TerminalIPythonApp,
             )
         except ImportError:
-            self.perror("IPython package is not installed")
+            self.pfailure("IPython package is not installed")
             return None
 
         from .py_bridge import (
@@ -4336,7 +4446,7 @@ class Cmd(cmd.Cmd):
         )
 
         if self.in_pyscript():
-            self.perror("Recursively entering interactive Python shells is not allowed")
+            self.pfailure("Recursively entering interactive Python shells is not allowed")
             return None
 
         self.last_result = True
@@ -4398,7 +4508,7 @@ class Cmd(cmd.Cmd):
             '-t',
             '--transcript',
             metavar='TRANSCRIPT_FILE',
-            help='output commands and results to a transcript file,\nimplies --script',
+            help='output commands and results to a transcript file, implies --script',
             completer=Cmd.path_complete,
         )
         history_action_group.add_argument('-c', '--clear', action='store_true', help='clear all history')
@@ -4408,25 +4518,25 @@ class Cmd(cmd.Cmd):
             '-s',
             '--script',
             action='store_true',
-            help='output commands in script format, i.e. without command\nnumbers',
+            help='output commands in script format, i.e. without command numbers',
         )
         history_format_group.add_argument(
             '-x',
             '--expanded',
             action='store_true',
-            help='output fully parsed commands with aliases and shortcuts\nexpanded',
+            help='output fully parsed commands with aliases and shortcuts expanded',
         )
         history_format_group.add_argument(
             '-v',
             '--verbose',
             action='store_true',
-            help='display history and include expanded commands if they\ndiffer from the typed command',
+            help='include expanded command when it differs from the typed command',
         )
         history_format_group.add_argument(
             '-a',
             '--all',
             action='store_true',
-            help='display all commands, including ones persisted from\nprevious sessions',
+            help='display all commands, including ones persisted from previous sessions',
         )
 
         history_arg_help = (
@@ -4472,7 +4582,7 @@ class Cmd(cmd.Cmd):
                 except FileNotFoundError:
                     pass
                 except OSError as ex:
-                    self.perror(f"Error removing history file '{self.persistent_history_file}': {ex}")
+                    self.pfailure(f"Error removing history file '{self.persistent_history_file}': {ex}")
                     self.last_result = False
                     return None
 
@@ -4485,8 +4595,8 @@ class Cmd(cmd.Cmd):
 
         if args.run:
             if not args.arg:
-                self.perror("Cowardly refusing to run all previously entered commands.")
-                self.perror("If this is what you want to do, specify '1:' as the range of history.")
+                self.pfailure("Cowardly refusing to run all previously entered commands.")
+                self.pfailure("If this is what you want to do, specify '1:' as the range of history.")
             else:
                 stop = self.runcmds_plus_hooks(list(history.values()))
                 self.last_result = True
@@ -4518,7 +4628,7 @@ class Cmd(cmd.Cmd):
                             fobj.write(f"{item.raw}\n")
                 plural = '' if len(history) == 1 else 's'
             except OSError as ex:
-                self.perror(f"Error saving history file '{full_path}': {ex}")
+                self.pfailure(f"Error saving history file '{full_path}': {ex}")
             else:
                 self.pfeedback(f"{len(history)} command{plural} saved to {full_path}")
                 self.last_result = True
@@ -4575,7 +4685,7 @@ class Cmd(cmd.Cmd):
         # On Windows, trying to open a directory throws a permission
         # error, not a `IsADirectoryError`. So we'll check it ourselves.
         if os.path.isdir(hist_file):
-            self.perror(f"Persistent history file '{hist_file}' is a directory")
+            self.pfailure(f"Persistent history file '{hist_file}' is a directory")
             return
 
         # Create the directory for the history file if it doesn't already exist
@@ -4583,7 +4693,7 @@ class Cmd(cmd.Cmd):
         try:
             os.makedirs(hist_file_dir, exist_ok=True)
         except OSError as ex:
-            self.perror(f"Error creating persistent history file directory '{hist_file_dir}': {ex}")
+            self.pfailure(f"Error creating persistent history file directory '{hist_file_dir}': {ex}")
             return
 
         # Read history file
@@ -4593,7 +4703,7 @@ class Cmd(cmd.Cmd):
         except FileNotFoundError:
             compressed_bytes = bytes()
         except OSError as ex:
-            self.perror(f"Cannot read persistent history file '{hist_file}': {ex}")
+            self.pfailure(f"Cannot read persistent history file '{hist_file}': {ex}")
             return
 
         # Register a function to write history at save
@@ -4619,7 +4729,7 @@ class Cmd(cmd.Cmd):
         try:
             history_json = decompress_lib.decompress(compressed_bytes).decode(encoding='utf-8')
         except decompress_exceptions as ex:
-            self.perror(
+            self.pfailure(
                 f"Error decompressing persistent history data '{hist_file}': {ex}\n"
                 f"The history file will be recreated when this application exits."
             )
@@ -4631,7 +4741,7 @@ class Cmd(cmd.Cmd):
         try:
             self.history = History.from_json(history_json)
         except (json.JSONDecodeError, KeyError, ValueError) as ex:
-            self.perror(
+            self.pfailure(
                 f"Error processing persistent history data '{hist_file}': {ex}\n"
                 f"The history file will be recreated when this application exits."
             )
@@ -4667,7 +4777,7 @@ class Cmd(cmd.Cmd):
             with open(self.persistent_history_file, 'wb') as fobj:
                 fobj.write(compressed_bytes)
         except OSError as ex:
-            self.perror(f"Cannot write persistent history file '{self.persistent_history_file}': {ex}")
+            self.pfailure(f"Cannot write persistent history file '{self.persistent_history_file}': {ex}")
 
     def _generate_transcript(
         self,
@@ -4683,7 +4793,7 @@ class Cmd(cmd.Cmd):
         transcript_path = os.path.abspath(os.path.expanduser(transcript_file))
         transcript_dir = os.path.dirname(transcript_path)
         if not os.path.isdir(transcript_dir) or not os.access(transcript_dir, os.W_OK):
-            self.perror(f"'{transcript_dir}' is not a directory or you don't have write access")
+            self.pfailure(f"'{transcript_dir}' is not a directory or you don't have write access")
             return
 
         commands_run = 0
@@ -4731,7 +4841,7 @@ class Cmd(cmd.Cmd):
                         raise_keyboard_interrupt=True,
                     )
                 except KeyboardInterrupt as ex:
-                    self.perror(ex)
+                    self.pfailure(ex)
                     stop = True
 
                 commands_run += 1
@@ -4757,7 +4867,7 @@ class Cmd(cmd.Cmd):
             with open(transcript_path, 'w') as fout:
                 fout.write(transcript)
         except OSError as ex:
-            self.perror(f"Error saving transcript file '{transcript_path}': {ex}")
+            self.pfailure(f"Error saving transcript file '{transcript_path}': {ex}")
         else:
             # and let the user know what we did
             if commands_run == 1:
@@ -4773,7 +4883,6 @@ class Cmd(cmd.Cmd):
 
         edit_description = "Run a text editor and optionally open a file with it."
         edit_parser = argparse_custom.DEFAULT_ARGUMENT_PARSER(description=edit_description)
-
         edit_parser.epilog = edit_parser.create_text_group(
             "Note",
             Markdown("To set a new editor, run: `set editor <program>`"),
@@ -4820,13 +4929,7 @@ class Cmd(cmd.Cmd):
 
     @staticmethod
     def _build_base_run_script_parser() -> Cmd2ArgumentParser:
-        from rich.table import Table
-
-        run_script_description = Table(
-            box=None,
-            show_header=False,
-            padding=(0, 0),
-        )
+        run_script_description = Table.grid()
         run_script_description.add_row("Run text script.")
         run_script_description.add_row()
         run_script_description.add_row("Scripts contain one command, written as it would be typed in the console, per line.")
@@ -4873,14 +4976,14 @@ class Cmd(cmd.Cmd):
 
             # Make sure the file is ASCII or UTF-8 encoded text
             if not utils.is_text_file(expanded_path):
-                self.perror(f"'{expanded_path}' is not an ASCII or UTF-8 encoded text file")
+                self.pfailure(f"'{expanded_path}' is not an ASCII or UTF-8 encoded text file")
                 return None
 
             # Read all lines of the script
             with open(expanded_path, encoding='utf-8') as target:
                 script_commands = target.read().splitlines()
         except OSError as ex:
-            self.perror(f"Problem accessing script from '{expanded_path}': {ex}")
+            self.pfailure(f"Problem accessing script from '{expanded_path}': {ex}")
             return None
 
         orig_script_dir_count = len(self._script_dir)
@@ -4913,8 +5016,6 @@ class Cmd(cmd.Cmd):
 
     @staticmethod
     def _build_relative_run_script_parser() -> Cmd2ArgumentParser:
-        from rich.table import Table
-
         relative_run_script_parser = Cmd._build_base_run_script_parser()
         relative_run_script_parser.description = cast(Table, relative_run_script_parser.description)
         relative_run_script_parser.description.add_row()
@@ -4968,7 +5069,7 @@ class Cmd(cmd.Cmd):
         # Validate that there is at least one transcript file
         transcripts_expanded = utils.files_from_glob_patterns(transcript_paths, access=os.R_OK)
         if not transcripts_expanded:
-            self.perror('No test files found - nothing to test')
+            self.pfailure('No test files found - nothing to test')
             self.exit_code = 1
             return
 
@@ -4990,7 +5091,7 @@ class Cmd(cmd.Cmd):
         test_results = runner.run(testcase)
         execution_time = time.time() - start_time
         if test_results.wasSuccessful():
-            ansi.style_aware_write(sys.stderr, stream.read())
+            self.perror(stream.read())
             finish_msg = f' {num_transcripts} transcript{plural} passed in {execution_time:.3f} seconds '
             finish_msg = utils.align_center(finish_msg, fill_char='=')
             self.psuccess(finish_msg)
@@ -5002,7 +5103,7 @@ class Cmd(cmd.Cmd):
             start = end_of_trace + file_offset
 
             # But print the transcript file name and line number followed by what was expected and what was observed
-            self.perror(error_str[start:])
+            self.pfailure(error_str[start:])
 
             # Return a failure error code to support automated transcript-based testing
             self.exit_code = 1
@@ -5254,8 +5355,7 @@ class Cmd(cmd.Cmd):
         :param message_to_print: the message reporting that the command is disabled
         :param kwargs: not used
         """
-        # Set apply_style to False so message_to_print's style is not overridden
-        self.perror(message_to_print, apply_style=False)
+        self.perror(message_to_print)
 
     def cmdloop(self, intro: Optional[str] = None) -> int:  # type: ignore[override]
         """This is an outer wrapper around _cmdloop() which deals with extra features provided by cmd2.

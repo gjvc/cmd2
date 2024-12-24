@@ -4,7 +4,6 @@ Support for ANSI escape sequences which are used for things like applying style 
 setting the window title, and asynchronous alerts.
 """
 
-import functools
 import re
 from enum import (
     Enum,
@@ -20,6 +19,8 @@ from wcwidth import (  # type: ignore[import-untyped]
     wcswidth,
 )
 
+from . import rich_utils
+
 #######################################################
 # Common ANSI escape sequence constants
 #######################################################
@@ -28,38 +29,6 @@ CSI = f'{ESC}['
 OSC = f'{ESC}]'
 BEL = '\a'
 
-
-class AllowStyle(Enum):
-    """Values for ``cmd2.ansi.allow_style``"""
-
-    ALWAYS = 'Always'  # Always output ANSI style sequences
-    NEVER = 'Never'  # Remove ANSI style sequences from all output
-    TERMINAL = 'Terminal'  # Remove ANSI style sequences if the output is not going to the terminal
-
-    def __str__(self) -> str:
-        """Return value instead of enum name for printing in cmd2's set command"""
-        return str(self.value)
-
-    def __repr__(self) -> str:
-        """Return quoted value instead of enum description for printing in cmd2's set command"""
-        return repr(self.value)
-
-
-# Controls when ANSI style sequences are allowed in output
-allow_style = AllowStyle.TERMINAL
-"""When using outside of a cmd2 app, set this variable to one of:
-
-- ``AllowStyle.ALWAYS`` - always output ANSI style sequences
-- ``AllowStyle.NEVER`` - remove ANSI style sequences from all output
-- ``AllowStyle.TERMINAL`` - remove ANSI style sequences if the output is not going to the terminal
-
-to control how ANSI style sequences are handled by ``style_aware_write()``.
-
-``style_aware_write()`` is called by cmd2 methods like ``poutput()``, ``perror()``,
-``pwarning()``, etc.
-
-The default is ``AllowStyle.TERMINAL``.
-"""
 
 # Regular expression to match ANSI style sequence
 ANSI_STYLE_RE = re.compile(rf'{ESC}\[[^m]*m')
@@ -135,7 +104,9 @@ def style_aware_write(fileobj: IO[str], msg: str) -> None:
     :param fileobj: the file object being written to
     :param msg: the string being written
     """
-    if allow_style == AllowStyle.NEVER or (allow_style == AllowStyle.TERMINAL and not fileobj.isatty()):
+    if rich_utils.allow_style == rich_utils.AllowStyle.NEVER or (
+        rich_utils.allow_style == rich_utils.AllowStyle.TERMINAL and not fileobj.isatty()
+    ):
         msg = strip_style(msg)
     fileobj.write(msg)
 
@@ -1036,19 +1007,6 @@ def style(
 
     # Combine the ANSI style sequences with the value's text
     return "".join(map(str, additions)) + str(value) + "".join(map(str, removals))
-
-
-# Default styles for printing strings of various types.
-# These can be altered to suit an application's needs and only need to be a
-# function with the following structure: func(str) -> str
-style_success = functools.partial(style, fg=Fg.GREEN)
-"""Partial function supplying arguments to :meth:`cmd2.ansi.style()` which colors text to signify success"""
-
-style_warning = functools.partial(style, fg=Fg.LIGHT_YELLOW)
-"""Partial function supplying arguments to :meth:`cmd2.ansi.style()` which colors text to signify a warning"""
-
-style_error = functools.partial(style, fg=Fg.LIGHT_RED)
-"""Partial function supplying arguments to :meth:`cmd2.ansi.style()` which colors text to signify an error"""
 
 
 def async_alert_str(*, terminal_columns: int, prompt: str, line: str, cursor_offset: int, alert_msg: str) -> str:

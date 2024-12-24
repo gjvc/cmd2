@@ -11,7 +11,10 @@ except importlib_metadata.PackageNotFoundError:  # pragma: no cover
     # package is not installed
     pass
 
-from . import plugin
+from . import (
+    plugin,
+    rich_utils,
+)
 from .ansi import (
     Bg,
     Cursor,
@@ -101,6 +104,7 @@ __all__: list[str] = [
     'SkipPostcommandHooks',
     # modules
     'plugin',
+    'rich_utils',
     # Utilities
     'categorize',
     'CompletionMode',

@@ -246,7 +246,6 @@ from gettext import (
     gettext,
 )
 from typing import (
-    IO,
     TYPE_CHECKING,
     Any,
     Callable,
@@ -265,6 +264,8 @@ from rich.console import (
     Group,
     RenderableType,
 )
+from rich.table import Column, Table
+from rich.text import Text
 from rich_argparse import (
     ArgumentDefaultsRichHelpFormatter,
     MetavarTypeRichHelpFormatter,
@@ -274,8 +275,8 @@ from rich_argparse import (
 )
 
 from . import (
-    ansi,
     constants,
+    rich_utils,
 )
 
 if TYPE_CHECKING:  # pragma: no cover
@@ -1053,10 +1054,17 @@ setattr(argparse._SubParsersAction, 'remove_parser', _SubParsersAction_remove_pa
 class Cmd2HelpFormatter(RichHelpFormatter):
     """Custom help formatter to configure ordering of help text"""
 
-    # Render markup in usage, help, description, and epilog text.
-    RichHelpFormatter.usage_markup = True
-    RichHelpFormatter.help_markup = True
-    RichHelpFormatter.text_markup = True
+    # Disable automatic highlighting in the help text.
+    highlights = []
+
+    # Disable markup rendering in usage, help, description, and epilog text.
+    # cmd2's built-in commands do not escape opening brackets in their help text
+    # and therefore rely on these settings being False. If you desire to use
+    # markup in your help text, inherit from a Cmd2 help formatter and override
+    # these settings in that child class.
+    usage_markup = False
+    help_markup = False
+    text_markup = False
 
     def _format_usage(
         self,
@@ -1319,24 +1327,23 @@ class TextGroup:
 
     def __rich__(self) -> Group:
         """Custom rendering logic."""
-        import rich
-
         formatter = self.formatter_creator()
 
-        styled_title = rich.text.Text(
+        styled_title = Text(
             type(formatter).group_name_formatter(f"{self.title}:"),
             style=formatter.styles["argparse.groups"],
         )
 
         # Left pad the text like an argparse argument group does
         left_padding = formatter._indent_increment
-
-        text_table = rich.table.Table(
+        text_table = Table(
+            Column(overflow="fold"),
             box=None,
             show_header=False,
             padding=(0, 0, 0, left_padding),
         )
         text_table.add_row(self.text)
+
         return Group(styled_title, text_table)
 
 
@@ -1413,12 +1420,20 @@ class Cmd2ArgumentParser(argparse.ArgumentParser):
             linum += 1
 
         self.print_usage(sys.stderr)
-        formatted_message = ansi.style_error(formatted_message)
-        self.exit(2, f'{formatted_message}\n\n')
+
+        # Add failure style to message
+        console = self._get_formatter().console
+        with console.capture() as capture:
+            console.print(formatted_message, style=rich_utils.style_failure, crop=False)
+        formatted_message = f"{capture.get()}"
+
+        self.exit(2, f'{formatted_message}\n')
 
     def _get_formatter(self) -> Cmd2HelpFormatter:
-        """Copy of _get_formatter() with a different return type to assist type checkers."""
-        return cast(Cmd2HelpFormatter, super()._get_formatter())
+        """Copy of _get_formatter() with customizations for Cmd2HelpFormatter."""
+        formatter = cast(Cmd2HelpFormatter, super()._get_formatter())
+        formatter.console = rich_utils.Cmd2Console(sys.stdout)
+        return formatter
 
     def format_help(self) -> str:
         """Copy of format_help() from argparse.ArgumentParser with tweaks to separately display required parameters"""
@@ -1473,13 +1488,6 @@ class Cmd2ArgumentParser(argparse.ArgumentParser):
 
         # determine help from format above
         return formatter.format_help() + '\n'
-
-    def _print_message(self, message: str, file: Optional[IO[str]] = None) -> None:
-        # Override _print_message to use style_aware_write() since we use ANSI escape characters to support color
-        if message:
-            if file is None:
-                file = sys.stderr
-            ansi.style_aware_write(file, message)
 
     def create_text_group(self, title: str, text: RenderableType) -> TextGroup:
         """Create a TextGroup using this parser's formatter creator."""
