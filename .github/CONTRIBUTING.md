@@ -11,12 +11,12 @@ We welcome pull requests from cmd2 users and seasoned Python developers alike! F
 
 Remember to feel free to ask for help by leaving a comment within the Issue.
 
-Working on your first pull request? You can learn how from the 
+Working on your first pull request? You can learn how from the
 [GitHub Docs](https://docs.github.com/en/pull-requests/collaborating-with-pull-requests/proposing-changes-to-your-work-with-pull-requests/creating-a-pull-request).
 
 ###### If you've found a bug that is not on the board, [follow these steps](../README.md#found-a-bug).
 
---------------------------------------------------------------------------------
+---
 
 ## Contribution guidelines
 
@@ -64,22 +64,21 @@ The tables below list all prerequisites along with the minimum required version 
 
 #### Additional prerequisites for developing cmd2
 
-| Prerequisite                                                         | Minimum Version | Purpose                    |
-|----------------------------------------------------------------------|-----------------|----------------------------|
-| [codecov](http://doc.pytest.org/en/latest/)                          | `2.1.13`        | Cover coverage reporting   |
-| [doc8](https://github.com/PyCQA/doc8)                                | `1.1.2`         | Sphinx style checker       |
-| [invoke](https://www.pyinvoke.org/)                                  | `2.2.0`         | Command automation         |
-| [mypy](https://mypy-lang.org/)                                       | `1.13.0`        | Static type checker        |
-| [pytest](https://docs.pytest.org/en/stable/)                         | `3.0.6`         | Unit and integration tests | 
-| [pytest-cov](http://doc.pytest.org/en/latest/)                       | `6.0.0`         | Pytest code coverage       |
-| [pytest-mock](https://pypi.org/project/pytest-mock/)                 | `3.14.0`        | Pytest mocker fixture      |
-| [sphinx](https://www.sphinx-doc.org/en/master/)                      | `8.1.3`         | Documentation              |
-| [sphinx-autobuild](hhttps://pypi.org/project/sphinx-autobuild/)      | `2024.10.3`     | Rebuild docs on changes    |
-| [sphinx-rtd-theme](https://github.com/readthedocs/sphinx_rtd_theme ) | `3.0.1`         | Sphinx theme for RTD       |
-| [ruff](https://github.com/astral-sh/ruff)                            | `0.7.3`         | Fast linter and formatter  |
-| [uv](https://github.com/astral-sh/uv)                                | `0.5.1`         | Python package management  |
-
-
+| Prerequisite                                                                               | Minimum Version | Purpose                           |
+| ------------------------------------------------------------------------------------------ | --------------- | --------------------------------- |
+| [codecov](http://doc.pytest.org/en/latest/)                                                | `2.1.13`        | Cover coverage reporting          |
+| [invoke](https://www.pyinvoke.org/)                                                        | `2.2.0`         | Command automation                |
+| [griffe_typingdoc](https://github.com/mkdocstrings/griffe-typingdoc)                       | `0.2.7`         | mkdocstrings extension for typing |
+| [mypy](https://mypy-lang.org/)                                                             | `1.13.0`        | Static type checker               |
+| [pytest](https://docs.pytest.org/en/stable/)                                               | `3.0.6`         | Unit and integration tests        |
+| [pytest-cov](http://doc.pytest.org/en/latest/)                                             | `6.0.0`         | Pytest code coverage              |
+| [pytest-mock](https://pypi.org/project/pytest-mock/)                                       | `3.14.0`        | Pytest mocker fixture             |
+| [mkdocs-include-markdown-plugin](https://pypi.org/project/mkdocs-include-markdown-plugin/) | `7.1.2`         | MkDocs Plugin include MkDn        |
+| [mkdocs-macros-plugin](https://mkdocs-macros-plugin.readthedocs.io/)                       | `1.3.7`         | MkDocs Plugin for macros          |
+| [mkdocs-material](https://squidfunk.github.io/mkdocs-material/)                            | `9.5.49`        | Documentation                     |
+| [mkdocstrings[python]](https://mkdocstrings.github.io/)                                    | `0.27.0`        | MkDocs Plugin for Python AutoDoc  |
+| [ruff](https://github.com/astral-sh/ruff)                                                  | `0.7.3`         | Fast linter and formatter         |
+| [uv](https://github.com/astral-sh/uv)                                                      | `0.5.1`         | Python package management         |
 
 If Python is already installed in your machine, run the following commands to validate the versions:
 
@@ -90,11 +89,12 @@ $ pip freeze | grep pyperclip
 
 If your versions are lower than the prerequisite versions, you should update.
 
-If you do not already have Python installed on your machine, we recommend using [uv](https://github.com/astral-sh/uv)     
+If you do not already have Python installed on your machine, we recommend using [uv](https://github.com/astral-sh/uv)  
 for all of your Python needs because it is extremely fast, meets all Python installation and packaging needs, and works
-on all platforms (Windows, Mac, and Linux).  You can install `uv` using instructions at the link above.
+on all platforms (Windows, Mac, and Linux). You can install `uv` using instructions at the link above.
 
 You can then install multiple versions of Python using `uv` like so:
+
 ```sh
 uv python install 3.9 3.10 3.11 3.12 3.13
 ```
@@ -148,22 +148,22 @@ Do this prior to every time you create a branch for a PR:
 1. Make sure you are on the `master` branch
 
 > ```sh
-  > $ git status
-  > On branch master
-  > Your branch is up-to-date with 'origin/master'.
-  > ```
+> $ git status
+> On branch master
+> Your branch is up-to-date with 'origin/master'.
+> ```
 
 > If your aren't on `master`, resolve outstanding files and commits and checkout the `master` branch
 
 > ```sh
-  > $ git checkout master
-  > ```
+> $ git checkout master
+> ```
 
 2. Do a pull with rebase against `upstream`
 
 > ```sh
-  > $ git pull --rebase upstream master
-  > ```
+> $ git pull --rebase upstream master
+> ```
 
 > This will pull down all of the changes to the official master branch, without making an additional commit in your
 > local repo.
@@ -171,8 +171,8 @@ Do this prior to every time you create a branch for a PR:
 3. (_Optional_) Force push your updated master branch to your GitHub fork
 
 > ```sh
-  > $ git push origin master --force
-  > ```
+> $ git push origin master --force
+> ```
 
 > This will overwrite the master branch of your fork.
 
@@ -214,8 +214,8 @@ package from the source.
 
 `cmd2` has support for using [uv](https://github.com/astral-sh/uv) for development.
 
-`uv` is single tool to replace `pip`, `pip-tools`, `pipx`, `poetry`, `pyenv`, `twine`, `virtualenv`, and more. `cmd2` 
-contains configuration for using `uv` in it's `pyproject.toml` file  which  makes it extremely easy to setup a `cmd2` 
+`uv` is single tool to replace `pip`, `pip-tools`, `pipx`, `poetry`, `pyenv`, `twine`, `virtualenv`, and more. `cmd2`
+contains configuration for using `uv` in it's `pyproject.toml` file which makes it extremely easy to setup a `cmd2`
 development environment using `uv`.
 
 To create a virtual environment and install everything needed for `cmd2` development using `uv`, do the following
@@ -239,6 +239,7 @@ uv run examples/basic.py
 ```
 
 Alternatively you can activate the virtual environment using the OS-specific command such as this on Linux or macOS:
+
 ```sh
 source .venv/bin/activate
 ```
@@ -317,7 +318,7 @@ primarily related to continuous integration and release deployment.
 #### Changes to the documentation files
 
 If you made changes to any file in the `/docs` directory, you need to build the
-Sphinx documentation and make sure your changes look good:
+MkDocs documentation and make sure your changes look good:
 
 ```sh
 $ uv inv docs
@@ -338,7 +339,7 @@ served (usually [http://localhost:8000](http://localhost:8000)).
 ### Code Quality Checks
 
 You should have some sort of [PEP 8](https://www.python.org/dev/peps/pep-0008/)-based linting running in your editor or
-IDE or at the command line before you commit code.  `cmd2` uses [ruff](https://github.com/astral-sh/ruff) as part of
+IDE or at the command line before you commit code. `cmd2` uses [ruff](https://github.com/astral-sh/ruff) as part of
 its continuous integration (CI) process for both linting and auto-formatting.
 
 > Please do not ignore any linting errors in code you write or modify, as they are meant to **help** you and to ensure a
@@ -441,7 +442,7 @@ nothing to commit, working directory clean
    any outstanding files/commits and checkout master `git checkout master`
 
 2. Create a branch off of `master` with git: `git checkout -B
-    branch/name-here` **Note:** Branch naming is important. Use a name like
+branch/name-here` **Note:** Branch naming is important. Use a name like
    `fix/short-fix-description` or `feature/short-feature-description`. Review
    the [Contribution Guidelines](#contribution-guidelines) for more detail.
 
@@ -450,7 +451,7 @@ nothing to commit, working directory clean
 4. Check your `git status` to see unstaged files
 
 5. Add your edited files: `git add path/to/filename.ext` You can also do: `git
-    add .` to add all unstaged files. Take care, though, because you can
+add .` to add all unstaged files. Take care, though, because you can
    accidentally add files you don't want added. Review your `git status` first.
 
 6. Commit your edits: `git commit -m "Brief description of commit"`. Do not add the issue number in the commit message.
@@ -483,17 +484,17 @@ how to do it.
 4. The title (also called the subject) of your PR should be descriptive of your
    changes and succinctly indicate what is being fixed
 
-    - **Do not add the issue number in the PR title or commit message**
+   - **Do not add the issue number in the PR title or commit message**
 
-    - Examples: `Add test cases for Unicode support`; `Correct typo in overview documentation`
+   - Examples: `Add test cases for Unicode support`; `Correct typo in overview documentation`
 
 5. In the body of your PR include a more detailed summary of the changes you
    made and why
 
-    - If the PR is meant to fix an existing bug/issue, then, at the end of
-      your PR's description, append the keyword `closes` and #xxxx (where xxxx
-      is the issue number). Example: `closes #1337`. This tells GitHub to
-      close the existing issue if the PR is merged.
+   - If the PR is meant to fix an existing bug/issue, then, at the end of
+     your PR's description, append the keyword `closes` and #xxxx (where xxxx
+     is the issue number). Example: `closes #1337`. This tells GitHub to
+     close the existing issue if the PR is merged.
 
 6. Indicate what local testing you have done (e.g. what OS and version(s) of Python did you run the
    unit test suite with)
@@ -633,8 +634,8 @@ mostly automated. The manual steps are all git operations. Here's the checklist:
 1. Make sure all the unit tests pass with `invoke pytest` or `py.test`
 1. Make sure latest year in `LICENSE` matches current year
 1. Make sure `CHANGELOG.md` describes the version and has the correct release date
-1. Add a git tag representing the version number using ``invoke tag x.y.z``
-    * Where x, y, and z are all small non-negative integers
+1. Add a git tag representing the version number using `invoke tag x.y.z`
+   - Where x, y, and z are all small non-negative integers
 1. (Optional) Run `invoke pypi-test` to clean, build, and upload a new release to [Test PyPi](https://test.pypi.org)
 1. Run `invoke pypi` to clean, build, and upload a new release to [PyPi](https://pypi.org/)
 

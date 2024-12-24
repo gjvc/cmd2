@@ -56,7 +56,7 @@ class CommandResult(NamedTuple):
         if isinstance(sys.stderr, StdSim):
             sys.stderr.pause_storage = True
 
-    See :class:`~cmd2.utils.StdSim` for more information.
+    See [cmd2.utils.StdSim][] for more information.
 
     .. note::
 
