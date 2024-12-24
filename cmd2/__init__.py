@@ -58,6 +58,7 @@ from .exceptions import (
 )
 from .parsing import Statement
 from .py_bridge import CommandResult
+from .rich_utils import set_default_theme
 from .utils import (
     CompletionMode,
     CustomCompletionSettings,
@@ -102,9 +103,11 @@ __all__: list[str] = [
     'CompletionError',
     'PassThroughException',
     'SkipPostcommandHooks',
-    # modules
+    # Modules
     'plugin',
     'rich_utils',
+    # Rich Utils Exports
+    'set_default_theme',
     # Utilities
     'categorize',
     'CompletionMode',
