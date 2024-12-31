@@ -58,7 +58,7 @@ from .exceptions import (
 )
 from .parsing import Statement
 from .py_bridge import CommandResult
-from .rich_utils import set_default_theme
+from .rich_utils import set_theme
 from .utils import (
     CompletionMode,
     CustomCompletionSettings,
@@ -107,7 +107,7 @@ __all__: list[str] = [
     'plugin',
     'rich_utils',
     # Rich Utils Exports
-    'set_default_theme',
+    'set_theme',
     # Utilities
     'categorize',
     'CompletionMode',

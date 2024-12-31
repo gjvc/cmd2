@@ -11,6 +11,7 @@ from typing import (
 from rich.console import Console
 from rich.style import Style
 from rich.theme import Theme
+from rich_argparse import RichHelpFormatter
 
 # Default styles for printing strings of various types.
 # These can be altered to suit an application's needs and only need to be a
@@ -44,19 +45,29 @@ class AllowStyle(Enum):
 # Controls when ANSI style sequences are allowed in output
 allow_style = AllowStyle.TERMINAL
 
+# Rich theme used by Cmd2Console
+THEME: Optional[Theme] = None
 
-# Default Rich theme used by Cmd2Console
-DEFAULT_THEME: Optional[Theme] = None
+# Backup of default rich-argparse styles
+DEFAULT_RICH_ARGPARSE_STYLES = RichHelpFormatter.styles.copy()
 
 
-def set_default_theme(theme: Optional[Theme]) -> None:
+def set_theme(theme: Optional[Theme]) -> None:
     """
-    Set the default Rich theme used by Cmd2Console.
+    Set the Rich theme used by Cmd2Console and rich-argparse.
 
-    :param theme: new default theme or None if you want to use Rich's default
+    :param theme: new theme or None if you want to use Rich and rich-argparse defaults.
     """
-    global DEFAULT_THEME
-    DEFAULT_THEME = theme
+    global THEME
+    THEME = theme
+
+    # Update rich-argparse styles
+    if theme is None:
+        RichHelpFormatter.styles = DEFAULT_RICH_ARGPARSE_STYLES.copy()
+    else:
+        for name, style in theme.styles.items():
+            if name in RichHelpFormatter.styles:
+                RichHelpFormatter.styles[name] = style
 
 
 class Cmd2Console(Console):
@@ -86,7 +97,7 @@ class Cmd2Console(Console):
             markup=False,
             emoji=False,
             highlight=False,
-            theme=DEFAULT_THEME,
+            theme=THEME,
             **kwargs,
         )
 
