@@ -307,6 +307,10 @@ class Cmd(cmd.Cmd):
     DEFAULT_EDITOR = utils.find_editor()
     ruler = "─"
 
+    INTERNAL_COMMAND_EPILOG = (
+        "Notes:\n  This command is for internal use and is not intended to be called from the\n  command line."
+    )
+
     # Sorting keys for strings
     ALPHABETICAL_SORT_KEY = utils.norm_fold
     NATURAL_SORT_KEY = utils.natural_keys
@@ -3371,7 +3375,7 @@ class Cmd(cmd.Cmd):
     # Top-level parser for alias
     @staticmethod
     def _build_alias_parser() -> Cmd2ArgumentParser:
-        alias_description = "Manage aliases."
+        alias_description = "Manage aliases\n\nAn alias is a command that enables replacement of a word by another string."
         alias_parser = argparse_custom.DEFAULT_ARGUMENT_PARSER(description=alias_description)
         alias_parser.add_subparsers(metavar='SUBCOMMAND', required=True)
 
@@ -5505,7 +5509,7 @@ class Cmd(cmd.Cmd):
             raise TypeError(f'{func.__name__} does not have a declared return type, expected {data_type}')
         if signature.return_annotation != data_type:
             raise TypeError(
-                f'{func.__name__} has incompatible return type {signature.return_annotation}, expected ' f'{data_type}'
+                f'{func.__name__} has incompatible return type {signature.return_annotation}, expected {data_type}'
             )
 
     def register_precmd_hook(self, func: Callable[[plugin.PrecommandData], plugin.PrecommandData]) -> None:

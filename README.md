@@ -89,13 +89,16 @@ The best way to learn the cmd2 api is to delve into the example applications loc
 ## Tutorials
 
 - PyOhio 2019 presentation:
-  - [video](https://www.youtube.com/watch?v=pebeWrTqIIw)
-  - [slides](https://github.com/python-cmd2/talks/blob/master/PyOhio_2019/cmd2-PyOhio_2019.pdf)
-  - [example code](https://github.com/python-cmd2/talks/tree/master/PyOhio_2019/examples)
+    - [video](https://www.youtube.com/watch?v=pebeWrTqIIw)
+    - [slides](https://github.com/python-cmd2/talks/blob/master/PyOhio_2019/cmd2-PyOhio_2019.pdf)
+    - [example code](https://github.com/python-cmd2/talks/tree/master/PyOhio_2019/examples)
 - [Cookiecutter](https://github.com/cookiecutter/cookiecutter) Templates from community
-  - Basic cookiecutter template for cmd2 application : https://github.com/jayrod/cookiecutter-python-cmd2
-  - Advanced cookiecutter template with external plugin support : https://github.com/jayrod/cookiecutter-python-cmd2-ext-plug
-- [Example Applications](https://github.com/jayrod/cmd2-example-apps)
+    - Basic cookiecutter template for cmd2 application : https://github.com/jayrod/cookiecutter-python-cmd2
+    - Advanced cookiecutter template with external plugin support : https://github.com/jayrod/cookiecutter-python-cmd2-ext-plug
+- [cmd2 example applications](https://github.com/python-cmd2/cmd2/tree/master/examples)
+    - Basic cmd2 examples to demonstrate how to use various features
+- [Advanced Examples](https://github.com/jayrod/cmd2-example-apps)
+    - More complex examples that demonstrate more featuers about how to put together a complete application
 
 ## Hello World
 
