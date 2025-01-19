@@ -11,7 +11,7 @@
         - Added `RawDescriptionCmd2HelpFormatter`, `RawTextCmd2HelpFormatter`, `ArgumentDefaultsCmd2HelpFormatter`,
           and `MetavarTypeCmd2HelpFormatter` and they all use `rich-argparse`.
 
-## 2.5.9 (TBD)
+## 2.5.9 (January 17, 2025)
 
 - Bug Fixes
     - Fixed 'index out of range' error when passing no arguments to an argparse-based command function.
