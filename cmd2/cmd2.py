@@ -2752,7 +2752,7 @@ class Cmd(cmd.Cmd):
 
         :param statement: a parsed statement from the user
         :return: A bool telling if an error occurred and a utils.RedirectionSavedState object
-        :raises: RedirectionError if an error occurs trying to pipe or redirect
+        :raises RedirectionError: if an error occurs trying to pipe or redirect
         """
         import io
         import subprocess
