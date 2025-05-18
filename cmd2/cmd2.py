@@ -4228,11 +4228,15 @@ class Cmd(cmd.Cmd):
         name_label = 'Name'
         max_name_width = max([ansi.style_aware_wcswidth(param) for param in to_show])
         max_name_width = max(max_name_width, ansi.style_aware_wcswidth(name_label))
+        max_value_width = max([len(str(self.settables[param].get_value())) for param in to_show])
+        max_value_width = max(len('Value'), max_value_width)
+        max_description_width = max([len(str(self.settables[param].description)) for param in to_show])
+        max_description_width = max(60, max_description_width)
 
         cols: List[Column] = [
             Column(name_label, width=max_name_width),
-            Column('Value', width=30),
-            Column('Description', width=60),
+            Column('Value', width=max_value_width),
+            Column('Description', width=max_description_width),
         ]
 
         table = SimpleTable(cols, divider_char=self.ruler)
